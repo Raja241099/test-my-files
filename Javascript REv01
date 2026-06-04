@@ -1,0 +1,5 @@
+/* Here you can type your JavaScript functions which you can use in HTML Editor. Press F1 for help. */
+
+<script src="[AprisoScripts]/xlsx.full.min_HY.js"></script>
+
+<script src="[AprisoScripts]/gridjs.min_HY.js"></script>
