@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+  <title>AG Grid Excel Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-alpine.css">
+  <style>
+    html, body {
+     
+height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+
+    }
+    .grid-wrapper {
+     
+    width: 100%;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    padding: 10px;
+    box-sizing: border-box;
+	height: calc(100vh - 160px); /* Adjust based on header/input height */
+	flex-grow: 1;
+	display: flex;
+    flex-direction: column;
+
+  }
+
+    .ag-theme-alpine {
+  flex-grow: 1;
+  width: 100%;
+  height: 100%;
+}
+
+	.excel-upload {
+    margin-bottom: 20px;
+    padding: 8px;
+    font-size: 16px;
+  }
+  
+	h2 {
+    margin-bottom: 10px;
+    color: #333;
+  }
+  .ag-theme-alpine .ag-cell {
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  white-space: normal !important;
+  word-wrap: break-word;
+}
+
+.ag-theme-alpine .ag-header-cell {
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+.ag-theme-alpine .ag-row:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.ag-theme-alpine .ag-row:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+.ag-theme-alpine .ag-row:hover {
+  background-color: #e6f7ff !important;
+}
+.ag-theme-alpine .ag-header {
+  background-color: #007acc;
+  color: white;
+  font-weight: bold;
+}
+.grid-wrapper {
+  height: 600px;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  padding: 10px;
+  box-sizing: border-box;
+}
+  .theme-toggle {
+      margin-bottom: 20px;
+    }
+
+    .dark-mode {
+      background-color: #1e1e1e;
+      color: #f0f0f0;
+    }
+
+    .dark-mode .grid-wrapper {
+      background-color: #2c2c2c;
+      border-color: #444;
+    }
+
+    .dark-mode .ag-theme-alpine .ag-header-cell {
+      background-color: #444;
+      color: #fff;
+    }
+
+    .dark-mode .ag-theme-alpine .ag-row:nth-child(even),
+    .dark-mode .ag-theme-alpine .ag-row:nth-child(odd) {
+      background-color: #333;
+    }
+
+    .dark-mode .ag-theme-alpine .ag-row:hover {
+      background-color: #555 !important;
+    }
+	/* Ensure cell text is visible in dark mode */
+.dark-mode .ag-theme-alpine .ag-cell {
+  color: #f0f0f0;
+}
+
+/* Optional: make header text brighter in dark mode */
+.dark-mode .ag-theme-alpine .ag-header-cell {
+  color: #ffffff;
+}
+.grid-actions {
+  margin-bottom: 10px;
+}
+
+.grid-actions button {
+  margin-right: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  background-color: #007acc;
+  color: white;
+  transition: background-color 0.3s;
+}
+
+.grid-actions button:hover {
+  background-color: #005fa3;
+}
+
+
+
+
+
+
+
+
+  </style>
+</head>
+<body>
+  <h2>Upload Excel File</h2>
+  
+<div class="theme-toggle">
+    <label>
+      <input type="checkbox" id="themeSwitch" class="themswith"> Toggle Dark Mode
+    </label>
+  </div>
+ <div class="grid-actions">
+    <button onclick="exportToCsv()">📤 Export to CSV</button>
+  </div>
+  <input type="file" class="excel-upload" accept=".xlsx" />
+  <div class="grid-wrapper">
+    <div id="myGrid" class="ag-theme-alpine"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/ag-grid-enterprise@34.0.2/dist/ag-grid-enterprise.min.js"></script>
+ // <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.noStyle.js"></script>
+ // <script src="https://cdn.jsdelivr.net/npm/ag-grid-enterprise@34.0.2/dist/ag-grid-enterprise.min.js"></script>
+  <script>
+  let gridOptions = null;
+  //let gridApi = null;
+ 	document.querySelector('.excel-upload').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  		console.log(jsonData);
+        if (jsonData.length === 0) return;
+
+        const columnDefs = jsonData[0].map((header, index) => ({
+          headerName: header || "Column " + (index + 1),
+          field: "col" + index,
+          sortable: true,
+          filter: true,
+          resizable: true,
+		  autoHeight: true,
+		  wrapText: true,
+          pinned: index === 0 ? 'left' : null,
+		  cellStyle: { whiteSpace: 'normal', wordWrap: 'break-word' }
+		  
+        }));
+
+        const rowData = jsonData.slice(1).map(row => {
+          const rowObj = {};
+          row.forEach((cell, index) => {
+            rowObj["col" + index] = cell;
+          });
+          return rowObj;
+        });
+
+        const gridOptions = {
+          columnDefs: columnDefs,
+          rowData: rowData,
+          defaultColDef: {
+            sortable: true,
+            filter: true,
+            resizable: true,
+			editable: true,
+			autoHeight: true,
+			rapText: true
+			},
+			  pagination: true,
+			  enableRangeSelection: true,
+			   domLayout: 'normal',
+			   onGridReady: (params) => {
+			   gridApi = params.api;
+			   console.log("Grid is ready");
+			   }
+
+			  };
+
+        const gridDiv = document.getElementById("myGrid");
+		agGrid.createGrid(gridDiv, gridOptions);
+
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+	
+    // Theme toggle
+    document.querySelector('.themswith').addEventListener('change', function () {
+      document.body.classList.toggle('dark-mode');
+    });
+
+ function addRow() {
+      if (gridOptions && gridOptions.api) {
+        const newRow = {};
+        gridOptions.columnDefs.forEach(col => {
+          newRow[col.field] = '';
+        });
+        gridOptions.api.applyTransaction({ add: [newRow] });
+      } else {
+        alert("Please upload a file first.");
+      }
+    }
+	
+	let gridApi = null;
+
+function exportToCsv() {
+  if (gridApi) {
+    gridApi.exportDataAsCsv();
+  } else {
+    alert("Grid is not ready yet.");
+  }
+}
+
+
+
+  </script>
+</body>
+</html>
