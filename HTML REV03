@@ -1,0 +1,358 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+  <title>AG Grid Excel Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-alpine.css">
+  <style>
+    html, body {
+     
+height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+
+    }
+    .grid-wrapper {
+     
+    width: 100%;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    padding: 10px;
+    box-sizing: border-box;
+	height: calc(100vh - 160px); /* Adjust based on header/input height */
+	flex-grow: 1;
+	display: flex;
+    flex-direction: column;
+
+  }
+
+    .ag-theme-alpine {
+  flex-grow: 1;
+  width: 100%;
+  height: 100%;
+}
+
+	.excel-upload {
+    margin-bottom: 20px;
+    padding: 8px;
+    font-size: 16px;
+  }
+  
+	h2 {
+    margin-bottom: 10px;
+    color: #333;
+  }
+  .ag-theme-alpine .ag-cell {
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  white-space: normal !important;
+  word-wrap: break-word;
+}
+
+.ag-theme-alpine .ag-header-cell {
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+.ag-theme-alpine .ag-row:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.ag-theme-alpine .ag-row:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+.ag-theme-alpine .ag-row:hover {
+  background-color: #e6f7ff !important;
+}
+.ag-theme-alpine .ag-header {
+  background-color: #007acc;
+  color: white;
+  font-weight: bold;
+}
+.grid-wrapper {
+  height: 600px;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  padding: 10px;
+  box-sizing: border-box;
+}
+  .theme-toggle {
+      margin-bottom: 20px;
+    }
+
+    .dark-mode {
+      background-color: #1e1e1e;
+      color: #f0f0f0;
+    }
+
+    .dark-mode .grid-wrapper {
+      background-color: #2c2c2c;
+      border-color: #444;
+    }
+
+    .dark-mode .ag-theme-alpine .ag-header-cell {
+      background-color: #444;
+      color: #fff;
+    }
+
+    .dark-mode .ag-theme-alpine .ag-row:nth-child(even),
+    .dark-mode .ag-theme-alpine .ag-row:nth-child(odd) {
+      background-color: #333;
+    }
+
+    .dark-mode .ag-theme-alpine .ag-row:hover {
+      background-color: #555 !important;
+    }
+	/* Ensure cell text is visible in dark mode */
+.dark-mode .ag-theme-alpine .ag-cell {
+  color: #f0f0f0;
+}
+
+/* Optional: make header text brighter in dark mode */
+.dark-mode .ag-theme-alpine .ag-header-cell {
+  color: #ffffff;
+}
+.grid-actions {
+  margin-bottom: 10px;
+}
+
+.grid-actions button {
+  margin-right: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  background-color: #007acc;
+  color: white;
+  transition: background-color 0.3s;
+}
+
+.grid-actions button:hover {
+  background-color: #005fa3;
+}
+
+  </style>
+</head>
+<body>
+
+  
+<div class="theme-toggle">
+    <label>
+      <input type="checkbox" id="themeSwitch" class="themswith"> Toggle Dark Mode
+    </label>
+  </div>
+
+  <div class="grid-wrapper">
+    <div id="myGrid" class="ag-theme-alpine"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/ag-grid-enterprise@34.0.2/dist/ag-grid-enterprise.min.js"></script>
+ <script>
+
+  let gridOptions = null;
+  let gridApi = null;
+
+  // Decode HTML entities (handles &quot;)
+  function htmlDecode(encodedStr) {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = encodedStr;
+    return textarea.value;
+  }
+
+  // Replace {playload} with your backend string
+  const payload_IN = '{playload}';
+
+  // STEP 1: Make sure it's a proper JSON string
+  const decodedJsonString = htmlDecode(payload_IN).trim();
+  console.log("Decoded JSON string:", decodedJsonString);
+
+  // STEP 2: Parse JSON string → object
+  let payload;
+  try {
+    payload = JSON.parse(decodedJsonString);
+  } catch (err) {
+    console.error("JSON parse failed:", err, decodedJsonString);
+    alert("Invalid JSON from backend.");
+    throw err;
+  }
+
+  // --- NEW: helpers for sizing ---
+  function autoSizeAllColumns(paramsOrApi) {
+    const api = paramsOrApi.api || paramsOrApi;
+    const columnApi = paramsOrApi.columnApi || api.getColumnApi();
+    const allColIds = [];
+    columnApi.getAllColumns().forEach(col => allColIds.push(col.getColId()));
+    columnApi.autoSizeColumns(allColIds, false); // include headers
+  }
+  function fitColumnsToViewport() {
+    if (gridApi) gridApi.sizeColumnsToFit();
+  }
+  // expose for toolbar
+  function autoSizeNow() { if (gridApi) autoSizeAllColumns(gridApi); }
+  function fitToViewport() { fitColumnsToViewport(); }
+  window.autoSizeNow = autoSizeNow;
+  window.fitToViewport = fitToViewport;
+
+  // STEP 3: Load grid using parsed object
+  loadFromJsonModel(payload);
+
+  function loadFromJsonModel(model) {
+    if (!Array.isArray(model.columns) || !Array.isArray(model.rows)) {
+      alert("Invalid JSON format. Expected {columns:[], rows:[]}");
+      return;
+    }
+
+    const columnDefs = model.columns.map((c, idx) => ({
+      headerName: c.headerName ?? c.field,
+      field: c.field,
+      sortable: true,
+      // UPDATED: richer Enterprise filter
+      filter: 'agSetColumnFilter',
+      resizable: true,
+      wrapText: true,
+      autoHeight: true,
+      pinned: idx === 0 ? 'left' : null,
+      cellStyle: { whiteSpace: 'normal', wordWrap: 'break-word' },
+      // NEW: sensible min width
+      minWidth: 120
+    }));
+
+    const rowData = model.rows;
+    const gridDiv = document.getElementById("myGrid");
+
+    gridOptions = {
+      columnDefs,
+      rowData,	
+	  rowGroupPanelShow: 'always',           // shows the "Drag here to set row groups" area
+	  groupDisplayType: 'groupRows',
+	  groupIncludeFooter: true,        // subtotal per group
+	  groupIncludeTotalFooter: true,   // grand total at bottom
+	  suppressAggFuncInHeader: true,   // cleaner header text
+  // Optional: set how many group levels expand by default (0 collapsed, -1 expand all)
+  	 groupDefaultExpanded: 0,
+      // UPDATED: stronger defaults (flex + minWidth)
+
+      defaultColDef: {
+        sortable: true,
+        filter: 'agSetColumnFilter',
+        resizable: true,
+        editable: true,
+        autoHeight: true,
+        wrapText: true,
+        minWidth: 120,
+		 enableRowGroup: true, 
+       // flex: 1 // fill available width
+      },
+	  // ⬇️ ADD THIS BLOCK
+  		icons: {
+    sortAscending: () => '▲',   // ascending
+    sortDescending: () => '▼',  // descending
+    sortUnSort: () => '⇅'       // unsorted / remove sort
+  	},
+ 	 // ⬆️ ADD THIS BLOCK
+
+
+      // NEW: Enterprise side bar (Columns + Filters)
+      sideBar: {
+        toolPanels: [
+          { id: 'columns', labelDefault: 'Columns', iconKey: 'columns', toolPanel: 'agColumnsToolPanel' },
+          { id: 'filters', labelDefault: 'Filters', iconKey: 'filter', toolPanel: 'agFiltersToolPanel' }
+        ],
+        defaultToolPanel: 'columns'
+      },
+
+      // NEW: status bar aggregations
+      statusBar: {
+        statusPanels: [
+          { statusPanel: 'agTotalRowCountComponent', align: 'left' },
+          { statusPanel: 'agFilteredRowCountComponent' },
+          { statusPanel: 'agSelectedRowCountComponent' },
+          { statusPanel: 'agAggregationComponent' }
+        ]
+      },
+
+      // NEW: grouping panel and charts
+      rowGroupPanelShow: 'always',
+      enableRangeSelection: true,
+      enableCharts: true,
+
+      suppressRowClickSelection: false,
+      rowSelection: 'multiple',
+      pagination: true,
+      paginationPageSize: 50,
+      domLayout: 'normal',
+
+      onGridReady: params => {
+        gridApi = params.api;
+        // First fit to viewport so grid fills space
+        params.api.sizeColumnsToFit();
+      },
+
+      // NEW: auto-size all columns once rows render
+      onFirstDataRendered: params => {
+        autoSizeAllColumns(params);
+      },
+
+      // OPTIONAL: re-autosize when visibility/filter changes
+      onColumnVisible: params => autoSizeAllColumns(params),
+      onFilterChanged: params => autoSizeAllColumns(params),
+      onColumnResized: params => {
+        if (params.finished && params.source === 'uiColumnDragged') {
+          autoSizeAllColumns(params);
+        }
+      }
+    };
+
+    agGrid.createGrid(gridDiv, gridOptions);
+  }
+
+  // UPDATED: Theme toggle – switch grid theme classes
+  document.querySelector('.themswith').addEventListener('change', function () {
+    const gridEl = document.getElementById('myGrid');
+    const darkClass = 'ag-theme-alpine-dark';
+    const lightClass = 'ag-theme-alpine';
+    if (this.checked) {
+      gridEl.classList.remove(lightClass);
+      gridEl.classList.add(darkClass);
+    } else {
+      gridEl.classList.remove(darkClass);
+      gridEl.classList.add(lightClass);
+    }
+  });
+ // Theme toggle
+    document.querySelector('.themswith').addEventListener('change', function () {
+      document.body.classList.toggle('dark-mode');
+    });
+  // CSV Export (as you had)
+  function exportToCsv() {
+    if (gridApi) gridApi.exportDataAsCsv();
+    else alert("Grid not ready.");
+  }
+  window.exportToCsv = exportToCsv;
+
+  // NEW: Excel Export (requires xlsx + enterprise, you already added both)
+  function exportToExcel() {
+    if (!gridApi) return alert("Grid not ready.");
+    gridApi.exportDataAsExcel({
+      fileName: 'grid-data.xlsx',
+      sheetName: 'Data'
+      // You can customize: processCellCallback, columnWidth, exportMode, etc.
+    });
+  }
+  window.exportToExcel = exportToExcel;
+
+</script>
+
+
+</body>
+</html>
